@@ -1,0 +1,35 @@
+CONTROLDIFF/
+├── controldiff-venv/
+├── data/
+│   ├── image/                        # Directory containing 32x32 design images (.tiff files)
+│   ├── 0130_40_generated_wave_array2.csv
+│   └── 0130_40_generated_power_array2.csv
+├── src/
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── autoencoder.py
+│   │   ├── aux_net.py
+│   │   ├── ResNet_embed.py
+│   │   └── unet.py
+│   ├── scripts/
+│   │   ├── run_train.bat
+│   ├── output/
+│   │   ├── embed_models/
+│   │   │   ├── ckpt_ResNet34_embed_epoch_200_seed_0.pth
+│   │   │   └── ckpt_net_y2h_epoch_500_seed_0.pth
+│   │   └── Setup1/
+│   │       ├── results/
+│   │       │   ├── generated_samples/
+│   │       │   │   └── condition_{idx}_sample_{sample_idx}.tiff
+│   │       │   ├── sample_{step}_grid.png
+│   │       │   └── model-{milestone}.pt
+│   │       └── log_loss_niters{train_num_steps}.txt
+│   ├── diffusion.py
+│   ├── ema_pytorch.py
+│   ├── main.py
+│   ├── opts.py
+│   ├── train_net_for_label_embed.py
+│   ├── trainer.py
+│   └── utils.py
+├── README.md
+└── requirements.txt
