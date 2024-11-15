@@ -35,65 +35,102 @@ This project implements a conditional diffusion model to generate optical design
 
 ## Usage
 
-### Training the Model
+### Setup Name Convention
 
-To train the model, use the provided training script:
+Each experiment requires a unique setup name that will be used across all training and evaluation steps. This is controlled by the `--setting_name` parameter (e.g., "Setup1", "Setup2", etc.). Make sure to use the same setup name consistently across all steps of your experiment.
+
+### Training the DL Estimator (Power Predictor)
+
+Before training the diffusion model, we need to train a deep learning estimator that predicts power values given design images and wavelengths. This model serves as a fast alternative to the Maxwell FDFD simulator.
+
+To train the estimator:
 
 ```bash
-run_train.bat
+python src/train_classifier.py \
+    --setting_name "Setup1" \
+    --empower_lr 1e-4 \
+    --empower_batch_size 64 \
+    --clf_niters 100 \
+    --val_every 5 \
+    --patience 30 \
+    --weight_decay 1e-4
 ```
 
-This script uses the parameters defined in `src/scripts/run_train.bat` to start the training process.
+Key parameters:
+- `--setting_name`: Unique identifier for your experiment setup
+- `--empower_lr`: Learning rate for the estimator model
+- `--empower_batch_size`: Batch size for training
+- `--clf_niters`: Number of epochs for training
+- `--val_every`: Validation frequency (in epochs)
+- `--patience`: Early stopping patience
+- `--weight_decay`: Weight decay for regularization
 
-#### Important Parameters:
+The trained model will be saved in `output/{setting_name}/results/` with checkpoints and training history.
 
-- `--niters`: Total number of iterations for training. Set this to your desired total training iterations.
-- `--resume_niter`: Iteration number to resume training from. Used when continuing interrupted training.
+### Training the Diffusion Model
 
-To start a new training session:
-```bash
---niters 200000 --resume_niter 0
+Training parameters are configured in `src/scripts/run_train.bat`. Modify this file to set your experiment parameters:
+
+```batch
+python src/main.py ^
+--setting_name "Setup1" ^
+--niters 200000 ^
+--resume_niter 0 ^
+--train_batch_size 16 ^
+--train_lr 1e-4 ^
+--sample_every 1000 ^
+--save_every 10000
 ```
 
-To resume training from a specific iteration (e.g., 100000):
+Key parameters to modify:
+- `--setting_name`: Must match the setting name used in previous steps
+- `--niters`: Total number of training iterations
+- `--resume_niter`: Iteration to resume from (0 for new training)
+- `--train_batch_size`: Batch size for training
+- `--train_lr`: Learning rate
+- `--sample_every`: Frequency of sample generation
+- `--save_every`: Frequency of model checkpointing
+
+Then run the training:
 ```bash
---niters 200000 --resume_niter 100000
+src/scripts/run_train.bat
 ```
 
 ### Generating Samples
 
-To generate samples, you can use weights from any specific iteration:
+To generate samples, you can use weights from any specific iteration by modifying the `run_train.bat` file:
 
-1. Open the `src/scripts/run_train.bat` file.
-2. Set both `--niters` and `--resume_niter` to the desired iteration number:
-   ```bash
-   --niters 150000 --resume_niter 150000
-   ```
-   This will use the weights from iteration 150000 for sampling.
-3. Run the script:
-   ```bash
-   run_train.bat
+1. Set both `--niters` and `--resume_niter` to the desired iteration number:
+   ```batch
+   --niters 150000 ^
+   --resume_niter 150000
    ```
 
-The script will display a message indicating which iteration's weights are being used for sampling:
-""Generating samples using weights: `model-{args.niters}`.pt"
+2. Run the script:
+   ```bash
+   src/scripts/run_train.bat
+   ```
 
-Generated samples will be saved in the `output/Setup1/results/generated_samples/` directory.
+Generated samples will be saved in `output/{setting_name}/results/generated_samples/`.
 
-Note: If you want to sample using weights from an iteration other than the final one, always set both `--niters` and `--resume_niter` to the same value of the desired iteration.
+### Evaluating Generated Samples
 
-## Resuming Interrupted Sampling
+To evaluate the quality of generated samples:
 
-If the sampling process is interrupted, you can resume from where it left off:
+```bash
+python src/evaluate.py --setting_name "Setup1"
+```
 
-Simply run the `run_train.bat` script again.
-The script will automatically detect the last sampled index and continue from there.
+This will:
+1. Load the trained DL Estimator
+2. Process all generated samples
+3. Calculate power predictions
+4. Compare with ground truth values
+5. Generate evaluation metrics and statistics
 
-The sampling progress is saved in a JSON file located at `output/Setup1/results/sampling_progress.json`. This file keeps track of the last sampled index and the current image counter.
+Results will be saved to `output/{setting_name}/results/evaluation/predicted_powers{setup_number}.csv`
 
 ## Project Structure
-
-The project structure is organized as follows:
 
 ```
 CONTROLDIFF/
@@ -107,27 +144,26 @@ CONTROLDIFF/
 │   │   ├── __init__.py
 │   │   ├── autoencoder.py
 │   │   ├── aux_net.py
+│   │   ├── empower.py
 │   │   ├── ResNet_embed.py
 │   │   └── unet.py
 │   ├── scripts/
-│   │   ├── run_train.bat
+│   │   └── run_train.bat
 │   ├── output/
 │   │   ├── embed_models/
 │   │   │   ├── ckpt_ResNet34_embed_epoch_200_seed_0.pth
 │   │   │   └── ckpt_net_y2h_epoch_500_seed_0.pth
-│   │   └── Setup1/
+│   │   └── {setting_name}/
 │   │       ├── results/
 │   │       │   ├── generated_samples/
-│   │       │   │   └── condition_{idx}_sample_{sample_idx}.tiff
-│   │       │   ├── sample_{step}_grid.png
+│   │       │   ├── evaluation/
+│   │       │   ├── classifier/
 │   │       │   └── model-{milestone}.pt
-│   │       └── log_loss_niters{train_num_steps}.txt
 │   ├── diffusion.py
-│   ├── ema_pytorch.py
+│   ├── evaluate.py
 │   ├── main.py
 │   ├── opts.py
-│   ├── train_net_for_label_embed.py
-│   ├── trainer.py
+│   ├── train_classifier.py
 │   └── utils.py
 ├── README.md
 └── requirements.txt
